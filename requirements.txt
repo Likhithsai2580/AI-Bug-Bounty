@@ -1,0 +1,8 @@
+beautifulsoup4
+requests
+transformers
+torch
+groq
+python-telegram-bot
+discord-webhook
+reportlab

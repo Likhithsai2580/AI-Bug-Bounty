@@ -1,0 +1,5 @@
+sql_injection:
+  enabled: true
+  options:
+    timeout: 30
+    max_depth: 3

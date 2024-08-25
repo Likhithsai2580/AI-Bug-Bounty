@@ -23,8 +23,8 @@ An advanced, AI-powered tool for automated vulnerability scanning of websites. T
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/web-vulnerability-scanner.git
-   cd web-vulnerability-scanner
+   git clone https://github.com/Likhithsai2580/AI-Bug-Bounty.git
+   cd AI-Bug-Bounty
    ```
 
 2. Set up your Groq API key:

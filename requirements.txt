@@ -6,3 +6,8 @@ groq
 python-telegram-bot
 discord-webhook
 reportlab
+tenacity
+PyYAML
+faiss-cpu
+accelerate
+datasets

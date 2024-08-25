@@ -13,65 +13,32 @@ import re
 import uuid
 from cachetools import TTLCache
 from exploitdb import ExploitDB
+import asyncio
 
 class LLM:
     def __init__(self):
         self.client = Groq(api_key=GROK_API_KEY)
-        self.messages = [
-            {"role": "system", "content": """You are an advanced AI assistant specializing in web vulnerability scanning and analysis. Your task is to identify, analyze, and report potential security vulnerabilities in websites. You have access to various tools and techniques:
 
-1. Network Scanning: Use tools like nmap to perform port scans and service detection.
-2. Web Application Analysis: Employ tools such as nikto, sqlmap, and custom Python scripts to identify common web vulnerabilities.
-3. Code Analysis: Examine source code, if available, for potential security flaws.
-4. Traffic Analysis: Analyze network traffic using tools like Wireshark or tcpdump.
-5. Exploitation Techniques: Understand and explain potential exploit methods for discovered vulnerabilities.
-6. Reporting: Generate detailed, actionable reports on findings.
-7. ExploitDB Search: Use the ExploitDB to find relevant exploits for identified vulnerabilities.
-8. ***DONT STOP UNTIL ATLEAST ONE VULNERABILITY IS FOUND***
-When providing code or commands:
-- Use Python's subprocess module for executing system commands. and you can run tools nmap,nikto etc. if not installed you can install it with apt.
-- Implement proper error handling and logging.
-- Consider the security implications of your actions and always use ethical hacking practices.
-- Provide clear explanations for each step of your analysis.
-
-Your goal is to conduct a thorough security assessment while adhering to best practices in cybersecurity. Always prioritize the most critical vulnerabilities and provide remediation suggestions when possible.
-
-When you've completed your analysis, include 'FINAL ANSWER:' followed by a comprehensive summary of your findings and recommendations."""}
-        ]
-        self.lock = threading.Lock()
-        self.cache = TTLCache(maxsize=1000, ttl=3600)  # Cache with 1-hour TTL
-        self.exploitdb = ExploitDB()
-
-    def generate(self, prompt, model="llama-3.1-70b-versatile", max_retries=100, retry_delay=60):
-        cache_key = hashlib.md5(prompt.encode()).hexdigest()
-
-        with self.lock:
-            if cache_key in self.cache:
-                return self.cache[cache_key]
-
-        logger.info(f"Generating response using model: {model}")
-        with self.lock:
-            self.messages.append({"role": "user", "content": prompt})
-
-        for attempt in range(max_retries):
-            try:
-                chat_completion = self.client.chat.completions.create(
-                    messages=self.messages,
-                    model=model
-                )
-                response = chat_completion.choices[0].message.content
-                with self.lock:
-                    self.messages.append({"role": "assistant", "content": response})
-                    self.cache[cache_key] = response
-                return response
-            except Exception as e:
-                logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-                else:
-                    logger.error("Max retries reached. Returning None.")
-                    return None
+    async def generate(self, prompt):
+        logger.debug(f"Generating response for prompt: {prompt[:50]}...")
+        try:
+            loop = asyncio.get_running_loop()
+            logger.debug("Creating chat completion")
+            chat_completion = await loop.run_in_executor(None, lambda: self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt+" stay on topic of finding vulnerabilities in the target website. Whenever you want to install a tool install it by subprocess module apt install",
+                    }
+                ],
+                model="llama3-groq-70b-8192-tool-use-preview",
+                max_tokens=1024,
+            ))
+            logger.debug(f"LLM response received: {chat_completion.choices[0].message.content[:50]}...")
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error generating response: {str(e)}")
+            return None
 
     def chain_of_thought(self, prompt, max_iterations=5):
         self.messages.append({"role": "user", "content": prompt})

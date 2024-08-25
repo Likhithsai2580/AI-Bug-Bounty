@@ -2,10 +2,9 @@ import os
 import importlib.util
 import yaml
 from typing import Dict, Any, List
-import requests
-import threading
+import aiohttp
+import asyncio
 import logging
-import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -14,27 +13,25 @@ class PluginManager:
         self.plugin_dir = plugin_dir
         self.config_file = config_file
         self.plugins = {}
-        self.lock = threading.Lock()
+        self.lock = asyncio.Lock()
         self._check_plugin_directory()
-        self.load_plugins()
 
     def _check_plugin_directory(self):
         if not os.path.exists(self.plugin_dir):
             logger.warning(f"Plugin directory '{self.plugin_dir}' does not exist. Creating it.")
             os.makedirs(self.plugin_dir)
 
-    def load_plugins(self):
+    async def initialize(self):
+        await self.load_plugins()
+
+    async def load_plugins(self):
         logger.info("Loading plugins...")
         config = self._load_config()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_plugin = {executor.submit(self._load_plugin, plugin_name, plugin_config): plugin_name 
-                                for plugin_name, plugin_config in config.items() if plugin_config.get('enabled', True)}
-            for future in concurrent.futures.as_completed(future_to_plugin):
-                plugin_name = future_to_plugin[future]
-                try:
-                    future.result()
-                except Exception as e:
-                    logger.error(f"Failed to load plugin '{plugin_name}': {str(e)}")
+        logger.debug(f"Loaded plugin configuration: {config}")
+        tasks = [self._load_plugin(plugin_name, plugin_config)
+                 for plugin_name, plugin_config in config.items() if plugin_config.get('enabled', True)]
+        logger.debug(f"Created {len(tasks)} tasks for plugin loading")
+        await asyncio.gather(*tasks)
 
     def _load_config(self) -> Dict[str, Any]:
         if os.path.exists(self.config_file):
@@ -48,46 +45,52 @@ class PluginManager:
             logger.warning(f"Config file '{self.config_file}' not found. Using empty configuration.")
             return {}
 
-    def _load_plugin(self, plugin_name: str, plugin_config: Dict[str, Any]):
-        plugin_path = os.path.join(self.plugin_dir, f"{plugin_name}.py")
-        if not os.path.exists(plugin_path):
-            if plugin_config.get('remote_url'):
-                self._download_plugin(plugin_name, plugin_config['remote_url'])
-            else:
-                raise ValueError(f"Plugin '{plugin_name}' not found and no remote URL provided")
-
-        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        if hasattr(module, "Plugin"):
-            plugin_class = getattr(module, "Plugin")
-            self.plugins[plugin_name] = plugin_class(plugin_config.get('options', {}))
-            logger.info(f"Loaded plugin: {plugin_name}")
-        else:
-            raise ValueError(f"Plugin '{plugin_name}' does not have a Plugin class")
-
-    def _download_plugin(self, plugin_name: str, remote_url: str):
+    async def _load_plugin(self, plugin_name: str, plugin_config: Dict[str, Any]):
         try:
-            response = requests.get(remote_url)
-            response.raise_for_status()
             plugin_path = os.path.join(self.plugin_dir, f"{plugin_name}.py")
-            with open(plugin_path, 'w') as f:
-                f.write(response.text)
+            if not os.path.exists(plugin_path):
+                if plugin_config.get('remote_url'):
+                    await self._download_plugin(plugin_name, plugin_config['remote_url'])
+                else:
+                    raise ValueError(f"Plugin '{plugin_name}' not found and no remote URL provided")
+
+            spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            if hasattr(module, "Plugin"):
+                plugin_class = getattr(module, "Plugin")
+                async with self.lock:
+                    self.plugins[plugin_name] = plugin_class(plugin_config.get('options', {}))
+                logger.info(f"Loaded plugin: {plugin_name}")
+            else:
+                raise ValueError(f"Plugin '{plugin_name}' does not have a Plugin class")
+        except Exception as e:
+            logger.error(f"Failed to load plugin '{plugin_name}': {str(e)}")
+
+    async def _download_plugin(self, plugin_name: str, remote_url: str):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(remote_url) as response:
+                    response.raise_for_status()
+                    content = await response.text()
+                    plugin_path = os.path.join(self.plugin_dir, f"{plugin_name}.py")
+                    with open(plugin_path, 'w') as f:
+                        f.write(content)
             logger.info(f"Downloaded plugin '{plugin_name}' from {remote_url}")
-        except requests.RequestException as e:
+        except aiohttp.ClientError as e:
             raise ValueError(f"Failed to download plugin '{plugin_name}' from {remote_url}: {str(e)}")
 
-    def run_plugin(self, plugin_name: str, data: Dict[str, Any]) -> Any:
-        with self.lock:
+    async def run_plugin(self, plugin_name: str, data: Dict[str, Any]) -> Any:
+        async with self.lock:
             if plugin_name not in self.plugins:
                 raise ValueError(f"Plugin '{plugin_name}' not found")
             plugin = self.plugins[plugin_name]
-            try:
-                return plugin.run(data)
-            except Exception as e:
-                logger.error(f"Error running plugin '{plugin_name}': {str(e)}")
-                return {"error": str(e)}
+        try:
+            return await plugin.run(data)
+        except Exception as e:
+            logger.error(f"Error running plugin '{plugin_name}': {str(e)}")
+            return {"error": str(e)}
 
     def get_plugin_info(self, plugin_name: str) -> Dict[str, Any]:
         if plugin_name in self.plugins:
@@ -98,17 +101,17 @@ class PluginManager:
     def list_plugins(self) -> List[str]:
         return list(self.plugins.keys())
 
-    def reload_plugins(self):
+    async def reload_plugins(self):
         logger.info("Reloading plugins...")
         self.plugins.clear()
-        self.load_plugins()
+        await self.load_plugins()
 
 class Plugin:
     def __init__(self, options):
         self.timeout = options.get('timeout', 60)
         self.max_depth = options.get('max_depth', 5)
 
-    def run(self, target_url):
+    async def run(self, target_url):
         raise NotImplementedError("Plugin 'run' method must be implemented in subclasses")
 
     def get_info(self):

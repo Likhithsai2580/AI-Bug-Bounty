@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Vulnerability Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Vulnerability Scanner</h1>
+        <form id="scanForm">
+            <input type="text" id="targetUrl" placeholder="Enter target URL" required>
+            <button type="submit">Scan</button>
+        </form>
+        <div id="results" class="results-container">
+            <h2>Scan Results</h2>
+            <div id="resultsContent"></div>
+        </div>
+        <div id="loading" class="loading-spinner"></div>
+    </div>
+
+    <script>
+        document.getElementById('scanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const targetUrl = document.getElementById('targetUrl').value;
+            const resultsDiv = document.getElementById('resultsContent');
+            const loadingSpinner = document.getElementById('loading');
+
+            resultsDiv.innerHTML = '';
+            loadingSpinner.style.display = 'block';
+
+            try {
+                const response = await axios.post('/scan', { target_url: targetUrl });
+                loadingSpinner.style.display = 'none';
+                displayResults(response.data);
+            } catch (error) {
+                loadingSpinner.style.display = 'none';
+                resultsDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        });
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('resultsContent');
+            resultsDiv.innerHTML = '';
+
+            if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+                const vulnList = document.createElement('ul');
+                data.vulnerabilities.forEach(vuln => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <strong>${vuln.type}</strong>: ${vuln.description}
+                        <br>
+                        <span class="severity ${vuln.severity.toLowerCase()}">${vuln.severity}</span>
+                    `;
+                    vulnList.appendChild(li);
+                });
+                resultsDiv.appendChild(vulnList);
+            } else {
+                resultsDiv.innerHTML = '<p>No vulnerabilities found.</p>';
+            }
+
+            if (data.final_analysis) {
+                const analysis = document.createElement('div');
+                analysis.innerHTML = `<h3>Final Analysis</h3><p>${data.final_analysis}</p>`;
+                resultsDiv.appendChild(analysis);
+            }
+        }
+    </script>
+</body>
+</html>

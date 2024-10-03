@@ -1,11 +1,30 @@
 from typing import Dict, Any
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 import logging
+import matplotlib.pyplot as plt
+from reportlab.lib.utils import ImageReader
 
 logger = logging.getLogger(__name__)
+
+async def generate_vulnerability_chart(vulnerabilities):
+    severity_counts = {'Low': 0, 'Medium': 0, 'High': 0, 'Critical': 0}
+    for vuln in vulnerabilities:
+        severity = vuln.get('severity', 'Unknown')
+        if severity in severity_counts:
+            severity_counts[severity] += 1
+
+    plt.figure(figsize=(8, 6))
+    plt.bar(severity_counts.keys(), severity_counts.values())
+    plt.title('Vulnerability Severity Distribution')
+    plt.xlabel('Severity')
+    plt.ylabel('Count')
+    plt.savefig('vulnerability_chart.png')
+    plt.close()
+
+    return 'vulnerability_chart.png'
 
 async def generate_report(report_data: Dict[str, Any], output_file: str):
     logger.info(f"Starting report generation: {output_file}")
@@ -24,6 +43,9 @@ async def generate_report(report_data: Dict[str, Any], output_file: str):
     if 'vulnerabilities' in report_data:
         logger.info("Adding vulnerability details to report")
         story.append(Paragraph("Detected Vulnerabilities", styles['Heading2']))
+        chart_file = await generate_vulnerability_chart(report_data['vulnerabilities'])
+        story.append(Paragraph("Vulnerability Distribution", styles['Heading2']))
+        story.append(Image(chart_file, width=400, height=300))
         for vuln in report_data['vulnerabilities']:
             story.append(Paragraph(f"CVE: {vuln['cve']}", styles['Heading3']))
             story.append(Paragraph(f"Severity: {vuln['severity']}", styles['BodyText']))

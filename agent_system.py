@@ -180,9 +180,8 @@ class AgentSystem:
     async def create_agent(self, name: str) -> Agent:
         agent = Agent(name, self.plugin_manager, self.llm, self.session, self.rate_limiter)
         self.agents.append(agent)
-        logger.debug(f"Created agent: {name}")
         return agent
 
-    async def run_agents(self, target_url: str):
-        tasks = [agent.run_analysis(target_url) for agent in self.agents]
+    async def run_agents(self, target_urls: List[str]):
+        tasks = [agent.run_analysis(url) for agent in self.agents for url in target_urls]
         return await asyncio.gather(*tasks)

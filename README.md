@@ -1,17 +1,19 @@
 # AI-Bug-Bounty
-A Development of AI to automate bug bounty
 
-# Web Vulnerability Scanner
+An advanced, AI-powered tool for automated vulnerability scanning and bug bounty hunting.
 
-An advanced, AI-powered tool for automated vulnerability scanning of websites. This project combines machine learning techniques with traditional security tools to provide comprehensive security assessments.
+## Overview
 
-## Features
+AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional security tools to provide comprehensive security assessments. This project aims to automate the process of identifying vulnerabilities in web applications, making it an invaluable asset for both security professionals and bug bounty hunters.
+
+## Key Features
 
 - **AI-Driven Analysis**: Utilizes the Groq API for intelligent vulnerability detection and analysis.
 - **Plugin Architecture**: Easily extendable with custom security scanning plugins.
 - **Multi-Agent System**: Parallel scanning capabilities for improved performance.
 - **Automated Reporting**: Generates detailed PDF reports of scan results.
 - **Integration with Popular Tools**: Incorporates well-known security tools like nmap, sqlmap, and nikto.
+- **Web Interface**: User-friendly web UI for easy interaction and result visualization.
 
 ## Prerequisites
 
@@ -28,24 +30,29 @@ An advanced, AI-powered tool for automated vulnerability scanning of websites. T
    ```
 
 2. Set up your Groq API key:
-   - Open `config.py`
-   - Replace `"sk-..."` with your actual Groq API key
+   - Create a `config.py` file in the root directory
+   - Add the following line, replacing `YOUR_API_KEY` with your actual Groq API key:
+     ```python
+     GROK_API_KEY = "YOUR_API_KEY"
+     ```
 
 3. Build the Docker image:
    ```
-   docker build -t web-vuln-scanner .
+   docker build -t ai-bug-bounty .
    ```
 
 ## Usage
 
 1. Run the scanner:
    ```
-   docker run -it --rm web-vuln-scanner
+   docker run -it --rm -p 5000:5000 ai-bug-bounty
    ```
 
-2. Follow the prompts to enter the target URL and select scanning options.
+2. Open your web browser and navigate to `http://localhost:5000`
 
-3. Once the scan is complete, find the generated report in the `reports` directory.
+3. Enter the target URL in the web interface and start the scan
+
+4. View the results in the web interface or check the generated PDF report in the `reports` directory
 
 ## Configuration
 
@@ -53,7 +60,7 @@ An advanced, AI-powered tool for automated vulnerability scanning of websites. T
 
 Edit `plugin_config.yaml` to customize plugin behavior:
 
-```yaml
+```
 sql_injection:
   enabled: true
   options:
@@ -63,17 +70,24 @@ sql_injection:
 
 ### Adding New Plugins
 
-1. Create a new Python file in the `plugins` directory (e.g., `my_plugin.py`).
+1. Create a new Python file in the `plugins` directory (e.g., `my_plugin.py`)
 2. Implement the plugin interface:
 
    ```python
-   class MyPlugin:
+   class Plugin:
        def __init__(self, options):
            self.options = options
 
-       def run(self, target_url):
+       async def run(self, target_url):
            # Implement your scanning logic here
            return results
+
+       def get_info(self):
+           return {
+               "name": "My Custom Plugin",
+               "description": "Description of what the plugin does",
+               "version": "1.0.0"
+           }
    ```
 
 3. Add the plugin configuration to `plugin_config.yaml`:
@@ -95,10 +109,25 @@ sql_injection:
 - `plugins/`: Directory containing all scanning plugins
 - `Dockerfile`: Defines the Docker image for the project
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-This tool is for educational and authorized testing purposes only. Always obtain permission before scanning any website you don't own.
+This tool is for educational and authorized testing purposes only. Always obtain permission before scanning any website you don't own or have explicit authorization to test.
+
+## Support
+
+If you find this project useful, consider supporting its development:
+
+- GitHub: [Likhithsai2580](https://github.com/Likhithsai2580)
+- Patreon: [anony45](https://www.patreon.com/anony45)
+
+## Contact
+
+For any queries or suggestions, please open an issue on the GitHub repository.

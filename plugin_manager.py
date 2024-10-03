@@ -92,6 +92,10 @@ class PluginManager:
             logger.error(f"Error running plugin '{plugin_name}': {str(e)}")
             return {"error": str(e)}
 
+    async def run_all_plugins(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        tasks = [self.run_plugin(plugin_name, data) for plugin_name in self.plugins]
+        return await asyncio.gather(*tasks)
+
     def get_plugin_info(self, plugin_name: str) -> Dict[str, Any]:
         if plugin_name in self.plugins:
             return self.plugins[plugin_name].get_info()

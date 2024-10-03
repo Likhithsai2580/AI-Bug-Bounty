@@ -9,7 +9,6 @@ from plugin_manager import PluginManager
 from agent_system import AgentSystem, Agent
 from notifiers import NotificationManager
 from report_generator import generate_report
-from parallel_executor import ParallelExecutor
 from vector_db import VectorDB
 from model_trainer import ModelTrainer
 import subprocess
@@ -49,18 +48,17 @@ async def main():
         logger.debug("Initializing LLM instance")
         llm_instance = LLM()
         plugin_manager = PluginManager()
-        await plugin_manager.initialize()  # Initialize the plugin manager
+        await plugin_manager.initialize()
         agent_system = AgentSystem(plugin_manager, llm_instance)
         agent = await agent_system.create_agent("main_agent")
         notifier = NotificationManager()
-        parallel_executor = ParallelExecutor()
         vector_db = VectorDB(dimension=768)
         training_data = []
 
         target_url = "https://ridewithvia.com"
 
         # Initial prompt
-        prompt = f"Analyze the website {target_url} for vulnerabilities. Provide Python code to start the analysis."
+        prompt = f"Analyze the website {target_url} for vulnerabilities. You have full control of the terminal. You can execute commands, list running processes, and stop processes as needed."
 
         async with agent:
             while True:
@@ -72,17 +70,29 @@ async def main():
                             final_analysis = LLM_response.split("FINAL ANSWER:")[1].strip()
                             break
                         
-                        code_match = re.search(r"```python\n(.*?)```", LLM_response, re.DOTALL)
-                        if code_match:
-                            code = code_match.group(1)
-                            executor_id, output = await parallel_executor.execute(code)
-                            
-                            if isinstance(output, Exception):
-                                prompt = f"The code execution resulted in an error: {str(output)}\nPlease provide corrected Python code or a final analysis."
-                            else:
-                                prompt = f"Code execution output:\n{output}\nBased on this output, provide the next steps as Python code or a final analysis."
+                        if "EXECUTE:" in LLM_response:
+                            command = LLM_response.split("EXECUTE:")[1].strip()
+                            executor_id = await llm_instance.execute_command(command)
+                            prompt = f"Command execution started with ID: {executor_id}. What would you like to do next?"
+                        elif "GET_RESULT:" in LLM_response:
+                            executor_id = LLM_response.split("GET_RESULT:")[1].strip()
+                            result = await llm_instance.get_command_result(executor_id)
+                            prompt = f"Command result: {result}\nWhat would you like to do next?"
+                        elif "STOP_COMMAND:" in LLM_response:
+                            executor_id = LLM_response.split("STOP_COMMAND:")[1].strip()
+                            last_output = await llm_instance.stop_command(executor_id)
+                            prompt = f"Command stopped. Last output: {last_output}\nWhat would you like to do next?"
+                        elif "LIST_PROCESSES" in LLM_response:
+                            processes = llm_instance.list_running_processes()
+                            prompt = f"Running processes: {processes}\nWhat would you like to do next?"
+                        elif "INPUT:" in LLM_response:
+                            input_parts = LLM_response.split("INPUT:")[1].strip().split("|")
+                            executor_id = input_parts[0].strip()
+                            input_data = input_parts[1].strip()
+                            success = await llm_instance.handle_command_input(executor_id, input_data)
+                            prompt = f"Input {'sent successfully' if success else 'failed'}. What would you like to do next?"
                         else:
-                            prompt = "Please provide your response as Python code within triple backticks or a final analysis."
+                            prompt = "Please provide a valid command (EXECUTE, GET_RESULT, STOP_COMMAND, LIST_PROCESSES, or INPUT) or a final analysis."
                     else:
                         logger.error("Failed to generate LLM response")
                 except Exception as e:

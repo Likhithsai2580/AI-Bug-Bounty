@@ -1,20 +1,15 @@
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
 from datasets import Dataset
+import torch
 
-class ModelTrainer:
-    def __init__(self, model_name="gpt2"):
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+class VulnerabilityDetector:
+    def __init__(self, model_name="microsoft/codebert-base"):
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        # Add padding token if it doesn't exist
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            self.model.config.pad_token_id = self.model.config.eos_token_id
 
     def train(self, train_data, output_dir="./trained_model", num_train_epochs=3):
-        # Convert train_data to a list of dictionaries
-        train_dataset = Dataset.from_dict({"text": train_data})
+        train_dataset = Dataset.from_dict({"text": [item["code"] for item in train_data],
+                                           "label": [item["is_vulnerable"] for item in train_data]})
 
         def tokenize_function(examples):
             return self.tokenizer(examples["text"], padding="max_length", truncation=True)
@@ -24,9 +19,11 @@ class ModelTrainer:
         training_args = TrainingArguments(
             output_dir=output_dir,
             num_train_epochs=num_train_epochs,
-            per_device_train_batch_size=4,
-            save_steps=10_000,
-            save_total_limit=2,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            warmup_steps=500,
+            weight_decay=0.01,
+            logging_dir="./logs",
         )
 
         trainer = Trainer(
@@ -39,7 +36,8 @@ class ModelTrainer:
         self.model.save_pretrained(output_dir)
         self.tokenizer.save_pretrained(output_dir)
 
-    def generate(self, prompt, max_length=100):
-        input_ids = self.tokenizer.encode(prompt, return_tensors="pt")
-        output = self.model.generate(input_ids, max_length=max_length, num_return_sequences=1)
-        return self.tokenizer.decode(output[0], skip_special_tokens=True)
+    def predict(self, code_snippet):
+        inputs = self.tokenizer(code_snippet, return_tensors="pt", padding=True, truncation=True)
+        outputs = self.model(**inputs)
+        probabilities = torch.softmax(outputs.logits, dim=1)
+        return probabilities[0][1].item()  # Probability of being vulnerable

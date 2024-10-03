@@ -12,10 +12,11 @@ import logging
 import concurrent.futures
 from colorlog import ColoredFormatter
 import re
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urljoin
 import aiohttp
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from rate_limiter import RateLimiter
 
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s%(reset)s"
@@ -39,11 +40,12 @@ http.mount("https://", adapter)
 http.mount("http://", adapter)
 
 class Agent:
-    def __init__(self, name: str, plugin_manager: PluginManager, llm: LLM, session: aiohttp.ClientSession):
+    def __init__(self, name: str, plugin_manager: PluginManager, llm: LLM, session: aiohttp.ClientSession, rate_limiter: RateLimiter):
         self.name = name
         self.plugin_manager = plugin_manager
         self.llm = llm
         self.session = session
+        self.rate_limiter = rate_limiter
         self.results = {}
         self.training_data = []
         self.final_message = ""
@@ -96,9 +98,47 @@ class Agent:
         return results
 
     async def _check_form(self, url, form):
-        # Implement form checking logic here
-        # This is a placeholder implementation
+        action = form.get('action')
+        method = form.get('method', 'get').lower()
+        
+        if not action:
+            action = url
+        else:
+            action = urljoin(url, action)
+        
+        inputs = form.find_all('input')
+        for input_field in inputs:
+            input_type = input_field.get('type', '').lower()
+            input_name = input_field.get('name')
+            
+            if input_type in ['text', 'password', 'hidden'] and input_name:
+                for payload in self.payloads:
+                    data = {input_name: payload}
+                    try:
+                        if method == 'post':
+                            async with self.session.post(action, data=data, timeout=self.timeout) as response:
+                                content = await response.text()
+                        else:
+                            async with self.session.get(action, params=data, timeout=self.timeout) as response:
+                                content = await response.text()
+                        
+                        if self._check_xss_reflection(content, payload):
+                            return {
+                                "url": url,
+                                "form_action": action,
+                                "form_method": method,
+                                "vulnerable_input": input_name,
+                                "payload": payload,
+                                "reason": "XSS payload reflected in response"
+                            }
+                    except aiohttp.ClientError as e:
+                        logger.error(f"Request failed for {action}: {str(e)}")
+                        continue
+        
         return None
+
+    def _check_xss_reflection(self, content, payload):
+        return payload in content
 
     async def _check_get_params(self, url):
         parsed_url = urlparse(url)
@@ -128,15 +168,21 @@ class Agent:
         return self.final_message
 
 class AgentSystem:
-    def __init__(self, plugin_manager: PluginManager, llm: LLM):
+    def __init__(self, plugin_manager: PluginManager, llm: LLM, num_threads: int = 4):
         self.agents: List[Agent] = []
         self.plugin_manager = plugin_manager
         self.llm = llm
         self.session = aiohttp.ClientSession()
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=num_threads)
+        self.rate_limiter = RateLimiter(rate_limit=10)  # 10 requests per second
         logger.debug("AgentSystem initialized")
 
     async def create_agent(self, name: str) -> Agent:
-        agent = Agent(name, self.plugin_manager, self.llm, self.session)
+        agent = Agent(name, self.plugin_manager, self.llm, self.session, self.rate_limiter)
         self.agents.append(agent)
         logger.debug(f"Created agent: {name}")
         return agent
+
+    async def run_agents(self, target_url: str):
+        tasks = [agent.run_analysis(target_url) for agent in self.agents]
+        return await asyncio.gather(*tasks)

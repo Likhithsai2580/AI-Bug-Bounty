@@ -7,24 +7,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Monitor:
-    def __init__(self, targets: List[str], check_interval: int = 3600):
-        logger.debug(f"Initializing Monitor with targets: {targets} and check_interval: {check_interval}")
+    def __init__(self, targets: List[str], check_interval: int = 3600, mode: str = 'regular'):
+        logger.debug(f"Initializing Monitor with targets: {targets}, check_interval: {check_interval}, mode: {mode}")
         self.targets = targets
         self.check_interval = check_interval
-        self.session = aiohttp.ClientSession()
+        self.mode = mode
+        self.session = None
         logger.debug("Monitor initialized")
 
     async def start_monitoring(self):
         logger.debug("Starting monitoring loop")
-        while True:
-            logger.debug(f"Creating tasks for targets: {self.targets}")
-            tasks = [self.check_target(target) for target in self.targets]
-            logger.debug("Gathering results from tasks")
-            results = await asyncio.gather(*tasks)
-            logger.debug("Processing results")
-            self.process_results(results)
-            logger.debug(f"Sleeping for {self.check_interval} seconds")
-            await asyncio.sleep(self.check_interval)
+        self.session = aiohttp.ClientSession()
+        try:
+            while True:
+                logger.debug(f"Creating tasks for targets: {self.targets}")
+                tasks = [self.check_target(target) for target in self.targets]
+                logger.debug("Gathering results from tasks")
+                results = await asyncio.gather(*tasks)
+                logger.debug("Processing results")
+                self.process_results(results)
+                
+                if self.mode == 'regular':
+                    logger.debug("Regular mode: stopping after one iteration")
+                    break
+                
+                logger.debug(f"Sleeping for {self.check_interval} seconds")
+                await asyncio.sleep(self.check_interval)
+        finally:
+            await self.stop_monitoring()
 
     async def check_target(self, target: str) -> Dict:
         logger.debug(f"Checking target: {target}")
@@ -59,5 +69,6 @@ class Monitor:
 
     async def stop_monitoring(self):
         logger.debug("Stopping monitoring")
-        await self.session.close()
+        if self.session:
+            await self.session.close()
         logger.debug("Monitoring stopped")

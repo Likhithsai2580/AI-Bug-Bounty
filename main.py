@@ -1,5 +1,6 @@
 import asyncio
 import traceback
+import os
 from llm.llama import LLM
 from plugin_manager import PluginManager
 from agent_system import AgentSystem
@@ -45,7 +46,13 @@ async def scan_target(agent_system, vulnerability_db, notifier, target_url, mode
                     "vulnerabilities": vulnerabilities
                 }
 
-                report_file = f"vulnerability_report_{target_url.replace('://', '_').replace('/', '_')}.pdf"
+                # Create reports directory if it doesn't exist
+                os.makedirs("reports", exist_ok=True)
+                
+                # Generate report filename and save in reports folder
+                report_filename = f"vulnerability_report_{target_url.replace('://', '_').replace('/', '_')}.pdf"
+                report_file = os.path.join("reports", report_filename)
+                
                 await generate_report(report_data, report_file)
                 log(f"Report generated: {report_file}", Fore.GREEN)
                 await notifier.notify(f"Vulnerability scan completed for {target_url}", report_file)

@@ -12,16 +12,17 @@ AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional
 - **Plugin Architecture**: Easily extendable with custom security scanning plugins.
 - **Multi-Agent System**: Parallel scanning capabilities for improved performance.
 - **Automated Reporting**: Generates detailed PDF reports of scan results with vulnerability charts.
-- **Integration with Popular Tools**: Incorporates well-known security tools like nmap, sqlmap, and nikto.
+- **Integration with Popular Tools**: Incorporates well-known security tools and techniques.
 - **Web Interface**: User-friendly web UI for easy interaction and result visualization.
 - **Vulnerability Database**: Integration with NVD for up-to-date vulnerability information.
 - **Machine Learning Model**: Fine-tunable model for improved vulnerability detection.
 - **Notification System**: Supports Telegram and Discord notifications for scan results.
+- **Monitoring Mode**: Continuous scanning of target URLs at specified intervals.
 
 ## Prerequisites
 
-- Docker
 - Python 3.9+
+- Docker (optional)
 - Groq API key
 - Telegram Bot Token and Chat ID (optional)
 - Discord Webhook URL (optional)
@@ -34,7 +35,12 @@ AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional
    cd AI-Bug-Bounty
    ```
 
-2. Set up your configuration:
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Set up your configuration:
    Create a `config.py` file in the root directory with the following content:
 
    ```python
@@ -46,23 +52,24 @@ AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional
 
    Replace the placeholder values with your actual API keys and IDs.
 
-3. Build the Docker image:
-   ```
-   docker build -t ai-bug-bounty .
-   ```
-
 ## Usage
 
 1. Run the scanner:
    ```
-   docker run -it --rm -p 5000:5000 ai-bug-bounty
+   python main.py [TARGET_URLS] [--mode {regular,monitor}]
+   ```
+   Example:
+   ```
+   python main.py https://example.com https://test.com --mode monitor
    ```
 
-2. Open your web browser and navigate to `http://localhost:5000`
+2. For web interface (if implemented):
+   ```
+   python web_interface.py
+   ```
+   Then open your web browser and navigate to `http://localhost:5000`
 
-3. Enter the target URL in the web interface and start the scan
-
-4. View the results in the web interface or check the generated PDF report in the `reports` directory
+3. View the results in the console output and check the generated PDF report in the `reports` directory.
 
 ## Configuration
 

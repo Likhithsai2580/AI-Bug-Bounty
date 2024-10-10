@@ -3,3 +3,8 @@ sql_injection:
   options:
     timeout: 30
     max_depth: 3
+xss:
+  enabled: true
+  options:
+    timeout: 30
+    max_depth: 3

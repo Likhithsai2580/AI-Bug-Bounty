@@ -11,15 +11,20 @@ AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional
 - **AI-Driven Analysis**: Utilizes the Groq API for intelligent vulnerability detection and analysis.
 - **Plugin Architecture**: Easily extendable with custom security scanning plugins.
 - **Multi-Agent System**: Parallel scanning capabilities for improved performance.
-- **Automated Reporting**: Generates detailed PDF reports of scan results.
+- **Automated Reporting**: Generates detailed PDF reports of scan results with vulnerability charts.
 - **Integration with Popular Tools**: Incorporates well-known security tools like nmap, sqlmap, and nikto.
 - **Web Interface**: User-friendly web UI for easy interaction and result visualization.
+- **Vulnerability Database**: Integration with NVD for up-to-date vulnerability information.
+- **Machine Learning Model**: Fine-tunable model for improved vulnerability detection.
+- **Notification System**: Supports Telegram and Discord notifications for scan results.
 
 ## Prerequisites
 
 - Docker
 - Python 3.9+
 - Groq API key
+- Telegram Bot Token and Chat ID (optional)
+- Discord Webhook URL (optional)
 
 ## Installation
 
@@ -29,12 +34,17 @@ AI-Bug-Bounty combines cutting-edge machine learning techniques with traditional
    cd AI-Bug-Bounty
    ```
 
-2. Set up your Groq API key:
-   - Create a `config.py` file in the root directory
-   - Add the following line, replacing `YOUR_API_KEY` with your actual Groq API key:
-     ```python
-     GROK_API_KEY = "YOUR_API_KEY"
-     ```
+2. Set up your configuration:
+   Create a `config.py` file in the root directory with the following content:
+
+   ```python
+   GROK_API_KEY = "YOUR_GROQ_API_KEY"
+   TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+   TELEGRAM_CHAT_ID = "YOUR_TELEGRAM_CHAT_ID"
+   DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL"
+   ```
+
+   Replace the placeholder values with your actual API keys and IDs.
 
 3. Build the Docker image:
    ```

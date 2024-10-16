@@ -116,6 +116,14 @@ sql_injection:
        custom_option: value
    ```
 
+### Creating Plugin Documentation
+
+To create documentation for your plugin, follow these steps:
+
+1. Create a new Markdown file in the `docs/plugins` directory (e.g., `my_plugin.md`)
+2. Document the plugin's functionality, configuration options, and usage examples.
+3. Link the documentation file in the main `README.md` or a dedicated `docs/README.md` file.
+
 ## Project Structure
 
 - `main.py`: Entry point of the application

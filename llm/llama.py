@@ -196,8 +196,8 @@ class LLM:
                 return f"Relevant exploits found for {vulnerability}:\n" + "\n".join([f"- {e['title']} (ID: {e['id']})" for e in exploits[:5]])
         return f"No specific exploits found for {vulnerability} in the ExploitDB."
 
-    def analyze_vulnerability(self, vulnerability):
+    async def analyze_vulnerability(self, vulnerability):
         logger.debug(f"Analyzing vulnerability: {vulnerability[:50]}...")
         exploit_info = self.search_exploits(vulnerability)
         analysis_prompt = f"Analyze the following vulnerability and provide insights based on the available exploit information:\n\nVulnerability: {vulnerability}\n\nExploit Information:\n{exploit_info}\n\nProvide a detailed analysis, including potential impact, exploitation difficulty, and recommended mitigation steps."
-        return self.generate(analysis_prompt)
+        return await self.generate(analysis_prompt)

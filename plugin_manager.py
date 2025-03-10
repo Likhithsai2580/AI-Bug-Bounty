@@ -137,6 +137,13 @@ class PluginManager:
         await self.load_plugins()
         logger.debug("Plugins reloaded")
 
+    def get_payloads(self) -> List[str]:
+        payloads = []
+        for plugin in self.plugins.values():
+            if hasattr(plugin, 'payloads'):
+                payloads.extend(plugin.payloads)
+        return payloads
+
 class Plugin:
     def __init__(self, options):
         logger.debug(f"Initializing Plugin with options: {options}")
